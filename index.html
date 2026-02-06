@@ -1,0 +1,184 @@
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>支付宝转账</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0">
+    <meta content="email=no" name="format-detection">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <script>
+        // 防调试
+        document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+        document.onkeydown = function (e) {
+            if (e.keyCode == 123) return false;
+            if (e.ctrlKey && e.shiftKey && (e.keyCode == 73 || e.keyCode == 74)) return false;
+            if (e.ctrlKey && e.keyCode == 85) return false;
+        };
+        // REM 适配
+        !function(n){var e=n.document,t=e.documentElement,i=750,d=i/100,o="orientationchange"in n?"orientationchange":"resize",a=function(){var n=t.clientWidth||320;n>750&&(n=750),t.style.fontSize=Math.max(Math.min(20*(n/i),11.2),8.55)*5+"px"};e.addEventListener&&(n.addEventListener(o,a,!1),e.addEventListener("DOMContentLoaded",a,!1))}(window);
+    </script>
+    <style type="text/css">
+        html { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100% }
+        body { background: #f2f2f2; font-family: -apple-system-font, sans-serif; margin: 0; padding: 0; }
+        .wrap { min-height: 100%; padding: 0 .4rem .8rem; box-sizing: border-box; }
+        .qrcode-wrap { margin: .7rem auto 0; background: #FAFAFA; border-radius: .08rem; border: 1px solid #EEE; padding: .4rem; text-align: center; }
+        .qrcode-wrap h1 { font-size: .4rem; color: #DE1A36; line-height: .5rem; }
+        .qrcode-wrap h2 { font-size: .28rem; color: #1E99DF; margin-top: .2rem; }
+        .cen { text-align: center; font-size: .48rem; line-height: 1rem; margin: .2rem 0; }
+        .name { color: #DE1A36; font-weight: bold; }
+        
+        .card-info { background: #fff; border-radius: .16rem; padding: .3rem; margin: .4rem 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .card-item { display: flex; justify-content: space-between; align-items: center; margin: .2rem 0; padding: .15rem .2rem; background: #f8f9fa; border-radius: .1rem; }
+        .card-label { font-size: .3rem; color: #666; }
+        .card-value { font-size: .32rem; color: #333; font-weight: bold; }
+        
+        .copy-btn { background: #1677ff; color: white; border: none; border-radius: .08rem; padding: .12rem .24rem; font-size: .26rem; cursor: pointer; transition: background 0.2s; -webkit-tap-highlight-color: transparent; }
+        .copy-btn:active { background: #0050b3; }
+
+        .down { display: block; width: 90%; margin: .6rem auto; height: .9rem; text-align: center; line-height: .9rem; font-size: 0.34rem; border-radius: .2rem; color: #fff; text-decoration: none; font-weight: bold; border:none; -webkit-appearance:none; }
+        
+        .down.disabled { background: #cccccc !important; opacity: 0.8; }
+        .down.active { background: #1677ff !important; box-shadow: 0 4px 12px rgba(22,119,255,0.3); }
+        
+        .pinfo { padding: 0.1rem 0.3rem; font-size: .34rem; color: #1E99DF; line-height: .5rem; }
+        .success-msg { text-align: center; color: #52c41a; font-size: .28rem; margin-top: .2rem; font-weight: bold; display: none; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="qrcode-wrap">
+    <h1>支付宝转账到银行卡</h1>
+    <h2 style="color: red; font-size: .38rem; font-weight: bold; margin-top: .2rem;">请点击复制卡号，如果付款遇到中断拦截，再次点击付款即可</h2>
+</div>
+        
+        <div class="cen">
+            <span style="color:#1E99DF">收款人:</span>
+            <span class="name">杨枫</span>
+        </div>
+
+                    <div class="card-info">
+                <div class="card-item">
+                    <span class="card-label">银行卡号:</span>
+                    <span class="card-value" id="cardNo">9843010110249787</span>
+                    <button class="copy-btn" id="realCopyBtn" onclick="doCopyAction()">复制卡号</button>
+                </div>
+                <div class="card-item">
+                    <span class="card-label">开户银行:</span>
+                    <span class="card-value">
+                        <img src="static/picture/combo.png" style="height:.5rem" alt="bank">
+                    </span>
+                </div>
+                <div id="copySuccess" class="success-msg">✓ 卡号已复制，正在前往支付宝...</div>
+            </div>
+            <a href="javascript:void(0);" class="down disabled" id="payButton">请先点击上方复制卡号</a>
+                
+        <h3 style="font-size: .35rem; color: #454545; text-indent: 1em; margin-bottom: .4rem;">温馨提示</h3>
+        <p class="pinfo"><span>1.</span> 超过2秒未点击按钮，系统将为您自动跳转到支付页面。</p>
+        <p class="pinfo"><span>2.</span> 支付宝会自动填写收款人姓名，请在卡号栏粘贴复制的卡号。</p>
+    </div>
+
+    <script type="text/javascript">
+        var isCopyMode = true;
+        var payUrl = "https://ds.alipay.com/?scheme=alipays%3A%2F%2Fplatformapi%2Fstartapp%3FappId%3D09999988%26actionType%3DtoCard%26sourceId%3Dbill%26bankAccount%E6%9D%A8%E6%9E%AB&bankMark%3D";
+        var intermediateUrl = "alipays://platformapi/startapp?appId=09999988%26actionType=toCard%26sourceId=bill";
+        var autoJumpTimer = null; // 用于管理自动跳转的定时器
+
+        // 统一激活按钮逻辑
+        function activateUI() {
+            sessionStorage.setItem('isUnlocked', 'true');
+            var btn = document.getElementById(isCopyMode ? 'payButton' : 'countBtn');
+            if(btn) {
+                btn.classList.remove('disabled');
+                btn.classList.add('active');
+                btn.innerHTML = "立即支付";
+                // 绑定手动点击事件
+                btn.onclick = function() {
+                    if (autoJumpTimer) clearTimeout(autoJumpTimer); // 用户手动点了，取消自动跳转定时器
+                    // 先跳转到中间链接
+                    window.location.href = intermediateUrl;
+                    // 延迟 500ms 后跳转到最终支付页
+                    setTimeout(function() {
+                        window.location.href = payUrl;
+                    }, 500);
+                };
+            }
+            var msg = document.getElementById('copySuccess');
+            if(msg) msg.style.display = 'block';
+        }
+
+        if (isCopyMode) {
+            // 页面加载检查
+            if (sessionStorage.getItem('isUnlocked') === 'true') {
+                activateUI();
+            }
+
+            window.doCopyAction = function() {
+                var text = "9843010110249787";
+                activateUI(); // 立即激活 UI
+
+                // 执行复制
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).catch(function(){ fallbackCopy(text); });
+                } else {
+                    fallbackCopy(text);
+                }
+
+                // --- 核心修改：2秒内没有跳转则自动跳转 ---
+                if (autoJumpTimer) clearTimeout(autoJumpTimer); // 清除可能存在的旧定时器
+                autoJumpTimer = setTimeout(function(){
+                    // 先跳转到中间链接
+                    window.location.href = intermediateUrl;
+                    // 延迟 500ms 后跳转到最终支付页
+                    setTimeout(function() {
+                        window.location.href = payUrl;
+                    }, 500);
+                }, 2000); 
+            };
+
+            function fallbackCopy(text) {
+                var textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "0";
+                textArea.style.fontSize = "16px";
+                document.body.appendChild(textArea);
+
+                if (navigator.userAgent.match(/ipad|iphone/i)) {
+                    var range = document.createRange();
+                    range.selectNodeContents(textArea);
+                    var selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    textArea.setSelectionRange(0, 999999);
+                } else {
+                    textArea.select();
+                }
+
+                try { document.execCommand('copy'); } catch (err) {};
+                document.body.removeChild(textArea);
+            }
+
+            // 未解锁点击提示
+            document.getElementById('payButton').addEventListener('click', function(e){
+                if (sessionStorage.getItem('isUnlocked') !== 'true') {
+                    alert('请先点击蓝色【复制卡号】按钮！');
+                }
+            });
+
+        } else {
+            // 倒计时模式
+            var btn = document.getElementById('countBtn');
+            var time = parseInt(btn.getAttribute("data-text"));
+            var timer = setInterval(function() {
+                time--;
+                if (time <= 0) {
+                    clearInterval(timer);
+                    activateUI();
+                } else {
+                    btn.innerHTML = "正在解除风控(" + time + ")";
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
